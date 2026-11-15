@@ -1,0 +1,10 @@
+# Auto Video Editor (影音自動剪輯) 必要依賴套件清單
+# 系統需預先安裝 FFmpeg / FFprobe 並加入系統環境變數 PATH
+
+faster-whisper>=1.0.0
+ctranslate2>=4.0.0
+torch>=2.0.0
+numpy>=1.24.0
+pillow>=10.0.0
+onnxruntime>=1.16.0
+tqdm>=4.65.0

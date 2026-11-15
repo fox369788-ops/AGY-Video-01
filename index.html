@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>課堂教學影音播放器</title>
+  <style>
+    :root {
+      /* 柔和護眼淺綠色主題 (Light Green Theme) */
+      --bg-main: #eaf7ef;
+      --bg-topbar: #d6f0e0;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #e3f5ea;
+      --bg-subtle: #f3fbf6;
+      --text-primary: #133826;
+      --text-secondary: #3b6952;
+      --text-muted: #648c77;
+      --accent: #16a34a;
+      --accent-hover: #15803d;
+      --accent-light: #dcfce7;
+      --success: #15803d;
+      --border: #b8e0c8;
+      --radius: 12px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", "PingFang TC", sans-serif;
+      --font-mono: Consolas, "JetBrains Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 頂部簡潔導覽列 */
+    .topbar {
+      height: 58px;
+      background: var(--bg-topbar);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.06);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .topbar-hint {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      padding-left: 12px;
+      border-left: 1px solid var(--border);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* 通用按鈕 */
+    .btn {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .btn:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-danger:hover {
+      border-color: #dc2626;
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    /* 主容器 */
+    .main-container {
+      flex: 1;
+      max-width: 1160px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .view-section {
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+    }
+
+    .view-section.active {
+      display: flex;
+    }
+
+    /* =========================================================
+       模式一：播放清單模式 (Playlist Mode)
+       ========================================================= */
+    .dropzone {
+      border: 2px dashed #7bc99a;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(22, 163, 74, 0.05);
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: #f0fdf4;
+    }
+
+    .dropzone-icon {
+      font-size: 2.2rem;
+    }
+
+    .dropzone-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .dropzone-sub {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      max-width: 580px;
+      line-height: 1.5;
+    }
+
+    .dropzone-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* 播放清單列表區 */
+    .playlist-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(22, 163, 74, 0.05);
+    }
+
+    .playlist-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-subtle);
+    }
+
+    .playlist-header h2 {
+      font-size: 0.98rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-primary);
+    }
+
+    .count-badge {
+      font-size: 0.78rem;
+      background: var(--accent-light);
+      color: var(--accent-hover);
+      padding: 2px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    .playlist-empty {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    .playlist-items {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .playlist-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+      cursor: pointer;
+    }
+
+    .playlist-item:last-child {
+      border-bottom: none;
+    }
+
+    .playlist-item:hover {
+      background: var(--bg-surface-hover);
+    }
+
+    .playlist-item.next-up {
+      background: #f0fdf4;
+      box-shadow: inset 4px 0 0 var(--accent);
+    }
+
+    .playlist-item.completed .item-title {
+      color: var(--text-muted);
+    }
+
+    .item-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .item-index {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .playlist-item.next-up .item-index {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .playlist-item.completed .item-index {
+      background: var(--accent-light);
+      color: var(--success);
+      border-color: #86efac;
+    }
+
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .item-title {
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg-subtle);
+      color: var(--text-secondary);
+    }
+
+    .tag-cc {
+      color: var(--accent-hover);
+      border-color: #86efac;
+      background: var(--accent-light);
+    }
+
+    .tag-done {
+      color: var(--success);
+      border-color: #86efac;
+      background: #dcfce7;
+    }
+
+    .tag-next {
+      color: #b45309;
+      border-color: #fcd34d;
+      background: #fef3c7;
+    }
+
+    .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .icon-only-btn {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.82rem;
+    }
+
+    .icon-only-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--accent);
+      background: var(--bg-surface-hover);
+    }
+
+    /* =========================================================
+       模式二：影片播放模式 (Player Mode)
+       ========================================================= */
+    .player-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      box-shadow: 0 2px 10px rgba(22, 163, 74, 0.05);
+    }
+
+    .now-playing-title {
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-stage {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      box-shadow: 0 8px 24px rgba(19, 56, 38, 0.12);
+    }
+
+    .video-stage video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      cursor: pointer;
+    }
+
+    .video-stage video::cue {
+      opacity: 0;
+    }
+
+    /* CC 字幕顯示層 (隨底部控制列顯示/隱藏自動微調高度，不擋畫面) */
+    .cc-layer {
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      bottom: 24px;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 20;
+      transition: bottom 0.25s ease;
+    }
+
+    .video-stage.show-controls .cc-layer {
+      bottom: 74px;
+    }
+
+    .cc-layer.hidden {
+      display: none;
+    }
+
+    .cc-text-box {
+      background: rgba(10, 18, 14, 0.84);
+      color: #fff;
+      padding: 7px 18px;
+      border-radius: 8px;
+      font-size: 1.35rem;
+      font-weight: 600;
+      line-height: 1.45;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      max-width: 92%;
+    }
+
+    .cc-text-box:empty {
+      display: none;
+    }
+
+    /* 底部播放控制列：全螢幕預設隱藏不擋畫面，滑鼠靠近底部才顯示 */
+    .controls-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(to top, rgba(6, 20, 12, 0.92) 0%, rgba(6, 20, 12, 0.65) 70%, transparent 100%);
+      padding: 20px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 25;
+      opacity: 0;
+      transform: translateY(14px);
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+
+    .video-stage.show-controls .controls-bar {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .progress-wrap {
+      width: 100%;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .progress-rail {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      overflow: hidden;
+      transition: height 0.15s;
+    }
+
+    .progress-wrap:hover .progress-rail {
+      height: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #4ade80;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #f8fafc;
+      height: 34px;
+      padding: 0 11px;
+      border-radius: 7px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: inherit;
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .ctrl-btn.cc-on {
+      background: #4ade80;
+      color: #062413;
+      border-color: #4ade80;
+      font-weight: 700;
+    }
+
+    .time-label {
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      color: #e2e8f0;
+      margin-left: 4px;
+    }
+
+    .speed-picker {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      height: 34px;
+      border-radius: 7px;
+      padding: 0 8px;
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+    }
+
+    .speed-picker option {
+      background: #0f291b;
+      color: #fff;
+    }
+
+    .volume-range {
+      width: 72px;
+      accent-color: #4ade80;
+      cursor: pointer;
+    }
+
+    /* 通知提示橫幅 */
+    .toast-banner {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #14532d;
+      padding: 12px 18px;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toast-banner.show {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部簡潔列 -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">🎬 課堂教學影音播放器</div>
+      <div class="topbar-hint">關閉瀏覽器即自動清空播放清單，方便下一節課重新建立</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn" id="btnQuickAdd">➕ 新增影片 / 字幕檔</button>
+      <button class="btn btn-danger" id="btnClearAll" style="display:none;">🗑️ 清空本節課清單</button>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- =========================================================
+         視圖 1：播放清單模式 (預設畫面，影片播畢自動返回此畫面)
+         ========================================================= -->
+    <section class="view-section active" id="playlistView">
+
+      <!-- 影片播放完成返回時的提示橫幅 -->
+      <div class="toast-banner" id="finishBanner">
+        <span id="finishBannerText">✅ 上一部影片已播放完畢！請點選下方清單中的下一部影片繼續播放。</span>
+        <button class="btn btn-primary" id="btnPlayNextImmediate" style="display:none;">▶ 立即播放下一部</button>
+      </div>
+
+      <!-- 拖放與選取檔案區 -->
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">📂</div>
+        <div class="dropzone-title">將本節課要播放的影片拖曳至此，或點擊選取檔案</div>
+        <div class="dropzone-sub">
+          支援一次選取或拖入多個 <code>.mp4</code> 影片檔（可同時拖入同名的 <code>.srt</code> / <code>.vtt</code> 字幕檔，系統會自動配對 CC 字幕）
+        </div>
+        <div class="dropzone-actions" onclick="event.stopPropagation();">
+          <button class="btn btn-primary" id="btnSelectFiles">📄 選取影片與字幕檔案</button>
+          <button class="btn" id="btnLoadSample">⚡ 快速載入 07-01 & 07-02 教學影片</button>
+        </div>
+      </div>
+
+      <!-- 待播清單卡片 -->
+      <div class="playlist-card">
+        <div class="playlist-header">
+          <h2>
+            <span>📋 本節課播放清單</span>
+            <span class="count-badge" id="playlistCount">0 部影片</span>
+          </h2>
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">點擊任一影片即可進入播放模式</span>
+        </div>
+
+        <div class="playlist-empty" id="playlistEmpty">
+          目前清單尚無影片，請從上方「選取檔案」或直接將影片檔案拖入網頁中。
+        </div>
+
+        <div class="playlist-items" id="playlistItems"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         視圖 2：影片播放模式 (目前隱藏互動講義，專注純粹播放與 CC 字幕)
+         ========================================================= -->
+    <section class="view-section" id="playerView">
+      <div class="player-header-bar">
+        <button class="btn" id="btnBackToPlaylist">⬅ 返回播放清單</button>
+        <div class="now-playing-title" id="nowPlayingTitle">播放中：</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="btnAttachSrtInPlayer" title="為目前影片掛載 .srt 或 .vtt 字幕檔">📝 掛載字幕檔</button>
+        </div>
+      </div>
+
+      <div class="video-stage show-controls" id="videoStage">
+        <video id="videoEl" playsinline></video>
+
+        <!-- CC 懸浮字幕層 -->
+        <div class="cc-layer" id="ccLayer">
+          <div class="cc-text-box" id="ccTextBox"></div>
+        </div>
+
+        <!-- 播放器控制列 -->
+        <div class="controls-bar" id="controlsBar">
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress-rail">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+          </div>
+
+          <div class="controls-row">
+            <div class="ctrl-group">
+              <button class="ctrl-btn" id="btnPlayPause">⏸ 暫停</button>
+              <button class="ctrl-btn" id="btnRewind" title="倒退 5 秒 (←)">⏪ -5s</button>
+              <button class="ctrl-btn" id="btnForward" title="快進 5 秒 (→)">+5s ⏩</button>
+
+              <button class="ctrl-btn" id="btnMute">🔊</button>
+              <input type="range" class="volume-range" id="volumeRange" min="0" max="1" step="0.05" value="1" />
+
+              <span class="time-label">
+                <span id="curTimeLabel">00:00</span> / <span id="durTimeLabel">00:00</span>
+              </span>
+            </div>
+
+            <div class="ctrl-group">
+              <!-- CC 字幕開關 -->
+              <button class="ctrl-btn cc-on" id="btnCC" title="開關 CC 字幕 (快捷鍵 C)">CC 字幕：開</button>
+
+              <!-- 播放速度 -->
+              <select class="speed-picker" id="speedPicker" title="播放速度">
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2.0x</option>
+              </select>
+
+              <!-- 全螢幕 -->
+              <button class="ctrl-btn" id="btnFullscreen" title="全螢幕 (F)">⛶ 全螢幕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 隱藏的檔案選擇器 -->
+  <input type="file" id="fileInput" multiple accept="video/*,.mp4,.webm,.mkv,.mov,.srt,.vtt" style="display:none;" />
+  <input type="file" id="singleSrtInput" accept=".srt,.vtt" style="display:none;" />
+
+  <script>
+    // =========================================================================
+    // 1. 內建目錄下已知影片的預設字幕備援 (當老師直接選取 07-01 或 07-02 時自動配對)
+    // =========================================================================
+    const BUILTIN_SRT_MAP = {
+      "07-01": `1
+00:00:00,200 --> 00:00:11,000
+接下來的影片，我們來介紹如何在 Google AI Studio 申請一組 API Key。
+
+2
+00:00:11,350 --> 00:00:15,650
+首先搜尋 Google AI Studio。
+
+3
+00:00:21,350 --> 00:00:25,450
+點選進入 Google AI Studio 網站。
+
+4
+00:00:26,550 --> 00:00:29,150
+進入 Google AI Studio。
+
+5
+00:00:31,550 --> 00:00:33,750
+點選 Get started。
+
+6
+00:00:34,050 --> 00:00:37,450
+選擇要登入的 Google 帳號，
+
+7
+00:00:38,150 --> 00:00:42,750
+建議使用自己的 Google 帳號。
+
+8
+00:00:43,100 --> 00:00:47,300
+輸入登入這個帳號的密碼。
+
+9
+00:00:51,600 --> 00:00:54,300
+密碼輸入完成之後，
+
+10
+00:00:57,300 --> 00:00:59,500
+點選下一步。
+
+11
+00:00:59,900 --> 00:01:03,000
+進入到 Google AI Studio，
+
+12
+00:01:03,000 --> 00:01:09,700
+左下角這邊就是剛才登入的帳號。
+
+13
+00:01:10,100 --> 00:01:15,100
+點選 Get API Key 這個按鈕。
+
+14
+00:01:15,800 --> 00:01:19,900
+進到 API Key 這個畫面，
+
+15
+00:01:23,100 --> 00:01:27,100
+再點選 Create API Key。
+
+16
+00:01:28,300 --> 00:01:34,400
+這裡輸入你這一組 API Key 的名稱。
+
+17
+00:01:35,000 --> 00:01:40,400
+因為這一組 API Key 是要用在 OpenCode，
+
+18
+00:01:40,600 --> 00:01:46,000
+當作是另一個免費模型的提供者，
+
+19
+00:01:47,300 --> 00:01:51,100
+所以可以把這個 Key 的名稱，
+
+20
+00:01:51,600 --> 00:01:55,400
+命名為……
+
+21
+00:01:56,400 --> 00:01:59,700
+Gemini API Key for OpenCode。
+
+22
+00:01:59,700 --> 00:02:03,700
+當然這個名稱可以自己取，
+
+23
+00:02:04,100 --> 00:02:06,000
+不見得要跟我一樣。
+
+24
+00:02:06,400 --> 00:02:12,300
+專案名稱就用預設的 Gemini 專案就可以了。
+
+25
+00:02:12,800 --> 00:02:17,000
+好了就點選 Create Key 這個按鈕。
+
+26
+00:02:17,500 --> 00:02:23,300
+得到 AI Studio 幫我們產生的 API Key。
+
+27
+00:02:23,700 --> 00:02:27,800
+可以先把這一組 API Key 複製。
+
+28
+00:02:31,600 --> 00:02:35,500
+跟我們講已經複製到剪貼簿了。`,
+
+      "07-02": `1
+00:00:00,140 --> 00:00:07,400
+同學先將 AI Studio 幫我們產生的 API Key，
+
+2
+00:00:07,630 --> 00:00:10,800
+做複製的動作。
+
+3
+00:00:11,000 --> 00:00:13,050
+接下來到桌面，
+
+4
+00:00:13,250 --> 00:00:19,600
+把桌面 OpenCode AI Agent 的框架打開。
+
+5
+00:00:19,850 --> 00:00:24,600
+OpenCode 打開來之後，先點選首頁
+
+6
+00:00:24,800 --> 00:00:26,400
+這個按鈕，
+
+7
+00:00:26,650 --> 00:00:29,050
+再點選設定，
+
+8
+00:00:29,300 --> 00:00:32,200
+再點選提供者。
+
+9
+00:00:32,500 --> 00:00:37,650
+這邊可以看到已連線的提供者，
+
+10
+00:00:38,100 --> 00:00:42,500
+目前就只有 OpenCode Console，
+
+11
+00:00:42,650 --> 00:00:46,750
+也就是預設的模型提供者。
+
+12
+00:00:46,950 --> 00:00:50,850
+底下有幾個熱門提供者，
+
+13
+00:00:51,050 --> 00:00:56,950
+點選 Google Gemini 模型，
+
+14
+00:00:57,200 --> 00:00:59,350
+新增連線。
+
+15
+00:00:59,550 --> 00:01:02,650
+接下來把 Google API Key 貼到
+
+16
+00:01:02,850 --> 00:01:04,500
+這個欄位，
+
+17
+00:01:04,700 --> 00:01:07,350
+Ctrl 鍵加 V 貼上。
+
+18
+00:01:07,500 --> 00:01:10,350
+API Key 貼上來之後，
+
+19
+00:01:10,600 --> 00:01:12,850
+點選繼續。
+
+20
+00:01:13,050 --> 00:01:16,950
+提醒我們連結到 Google，
+
+21
+00:01:17,150 --> 00:01:20,700
+可用的模型有這麼多，
+
+22
+00:01:20,900 --> 00:01:23,450
+好，之後點選繼續。
+
+23
+00:01:23,700 --> 00:01:25,300
+回到 OpenCode，
+
+24
+00:01:25,500 --> 00:01:32,750
+可以看到目前選用的模型就是 Google 提供的。
+
+25
+00:01:32,950 --> 00:01:37,000
+我們可以選擇其他模型，
+
+26
+00:01:37,250 --> 00:01:41,250
+這個是最近使用過的，
+
+27
+00:01:41,650 --> 00:01:45,700
+這個是 OpenCode 提供的。
+
+28
+00:01:45,950 --> 00:01:48,150
+捲動軸往下，
+
+29
+00:01:48,400 --> 00:01:51,500
+可以看到從這裡開始，
+
+30
+00:01:51,700 --> 00:01:54,200
+就是我們透過
+
+31
+00:01:54,400 --> 00:01:55,850
+AI Studio
+
+32
+00:01:56,050 --> 00:01:59,800
+得到的這一組 API Key，
+
+33
+00:02:00,000 --> 00:02:05,300
+Google 提供給我們使用的一些模型。
+
+34
+00:02:05,500 --> 00:02:09,000
+建議同學優先的使用
+
+35
+00:02:09,200 --> 00:02:12,300
+Flash 系列的模型，
+
+36
+00:02:12,500 --> 00:02:18,200
+這一系列的模型可以提供給我們更多、
+
+37
+00:02:18,300 --> 00:02:23,400
+更穩定的免費使用量。
+
+38
+00:02:23,650 --> 00:02:28,650
+我們就使用 3.5 Flash
+
+39
+00:02:28,850 --> 00:02:29,900
+試看看。
+
+40
+00:02:30,100 --> 00:02:35,700
+可以看到模型已經改為 Google 提供的
+
+41
+00:02:35,750 --> 00:02:38,350
+Gemini 3.5 Flash。
+
+42
+00:02:38,550 --> 00:02:41,450
+做一個簡單的問候，
+
+43
+00:02:41,650 --> 00:02:43,200
+送出。
+
+44
+00:02:43,400 --> 00:02:45,700
+回應我們，代表
+
+45
+00:02:45,750 --> 00:02:49,800
+這個模型目前是可以用的。
+
+46
+00:02:50,000 --> 00:02:56,750
+點選這裡，我們可以看目前所使用這個模型的內容。
+
+47
+00:02:56,950 --> 00:02:59,800
+目前這個工作階段，
+
+48
+00:03:00,000 --> 00:03:03,750
+模型是 Gemini 3.5 Flash。
+
+49
+00:03:03,950 --> 00:03:07,400
+這個模型的上下文限制，
+
+50
+00:03:07,800 --> 00:03:12,050
+也就是這個模型我們可以使用
+
+51
+00:03:12,250 --> 00:03:15,200
+Token 的最大額度是
+
+52
+00:03:15,400 --> 00:03:16,400
+100 萬。
+
+53
+00:03:16,600 --> 00:03:17,700
+剛才
+
+54
+00:03:17,900 --> 00:03:21,350
+做問候的動作，
+
+55
+00:03:21,550 --> 00:03:23,850
+一去一回，
+
+56
+00:03:23,900 --> 00:03:28,600
+花掉的 Token 數是 7,000。
+
+57
+00:03:28,800 --> 00:03:31,050
+這 7,000 包含了
+
+58
+00:03:32,350 --> 00:03:39,100
+輸入、輸出、推理、快取，
+
+59
+00:03:39,350 --> 00:03:41,550
+這幾個動作所使用的
+
+60
+00:03:41,750 --> 00:03:44,900
+Token 總和。
+
+61
+00:03:45,100 --> 00:03:49,400
+再把 7,000 除以 100 萬，
+
+62
+00:03:49,600 --> 00:03:53,900
+大概得到 1%，也就是
+
+63
+00:03:54,100 --> 00:03:57,100
+做這一次的問候動作，
+
+64
+00:03:57,300 --> 00:04:00,550
+用掉這個模型最大的
+
+65
+00:04:00,600 --> 00:04:06,700
+可使用 Token 數約佔了 1%。
+
+66
+00:04:06,900 --> 00:04:14,000
+有關於模型目前使用的量是怎麼計算的，
+
+67
+00:04:14,800 --> 00:04:19,000
+請同學要大概有個概念。`
+    };
+
+    // =========================================================================
+    // 2. 狀態管理 (僅存於記憶體，關閉分頁或瀏覽器自動清空，不寫入 localStorage)
+    // =========================================================================
+    const state = {
+      playlist: [],       // { id, name, baseName, url, completed, cues, srtName }
+      currentIndex: -1,
+      ccEnabled: true,
+      attachTargetIndex: -1
+    };
+
+    // =========================================================================
+    // 3. 工具函式：時間格式與 SRT 字幕解析
+    // =========================================================================
+    function getBaseName(filename) {
+      return filename.replace(/\.[^/.]+$/, "");
+    }
+
+    function parseTime(str) {
+      const clean = str.trim().replace(",", ".");
+      const parts = clean.split(":");
+      if (parts.length === 3) {
+        return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+      } else if (parts.length === 2) {
+        return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+      }
+      return 0;
+    }
+
+    function formatTime(sec) {
+      if (!isFinite(sec) || sec < 0) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function parseSRT(text) {
+      if (!text) return [];
+      const normalized = text.replace(/\r\n/g, "\n").replace(/^WEBVTT.*\n+/i, "").trim();
+      const blocks = normalized.split(/\n\s*\n/);
+      const cues = [];
+      blocks.forEach((block) => {
+        const lines = block.trim().split("\n");
+        if (lines.length < 2) return;
+        let tIdx = 0;
+        if (!lines[0].includes("-->") && lines[1] && lines[1].includes("-->")) {
+          tIdx = 1;
+        }
+        const timeLine = lines[tIdx];
+        if (!timeLine || !timeLine.includes("-->")) return;
+        const [sRaw, eRaw] = timeLine.split("-->");
+        const start = parseTime(sRaw);
+        const end = parseTime(eRaw);
+        const content = lines.slice(tIdx + 1).join(" ").trim();
+        if (content) cues.push({ start, end, text: content });
+      });
+      return cues;
+    }
+
+    function matchBuiltinSrt(baseName) {
+      const lower = baseName.toLowerCase();
+      if (lower.includes("07-02") || lower.includes("07_02") || lower.includes("opencode")) {
+        return { cues: parseSRT(BUILTIN_SRT_MAP["07-02"]), srtName: "內建 07-02 字幕" };
+      }
+      if (lower.includes("07-01") || lower.includes("07_01") || lower.includes("07_edited") || lower.includes("ai studio") || lower === "07") {
+        return { cues: parseSRT(BUILTIN_SRT_MAP["07-01"]), srtName: "內建 07-01 字幕" };
+      }
+      return null;
+    }
+
+    // =========================================================================
+    // 4. DOM 元素參照
+    // =========================================================================
+    const playlistView = document.getElementById("playlistView");
+    const playerView = document.getElementById("playerView");
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const singleSrtInput = document.getElementById("singleSrtInput");
+
+    const playlistCount = document.getElementById("playlistCount");
+    const playlistEmpty = document.getElementById("playlistEmpty");
+    const playlistItems = document.getElementById("playlistItems");
+    const btnClearAll = document.getElementById("btnClearAll");
+    const finishBanner = document.getElementById("finishBanner");
+    const finishBannerText = document.getElementById("finishBannerText");
+    const btnPlayNextImmediate = document.getElementById("btnPlayNextImmediate");
+
+    const videoStage = document.getElementById("videoStage");
+    const videoEl = document.getElementById("videoEl");
+    const ccLayer = document.getElementById("ccLayer");
+    const ccTextBox = document.getElementById("ccTextBox");
+    const nowPlayingTitle = document.getElementById("nowPlayingTitle");
+
+    const progressWrap = document.getElementById("progressWrap");
+    const progressFill = document.getElementById("progressFill");
+    const btnPlayPause = document.getElementById("btnPlayPause");
+    const btnRewind = document.getElementById("btnRewind");
+    const btnForward = document.getElementById("btnForward");
+    const btnMute = document.getElementById("btnMute");
+    const volumeRange = document.getElementById("volumeRange");
+    const curTimeLabel = document.getElementById("curTimeLabel");
+    const durTimeLabel = document.getElementById("durTimeLabel");
+    const btnCC = document.getElementById("btnCC");
+    const speedPicker = document.getElementById("speedPicker");
+    const btnFullscreen = document.getElementById("btnFullscreen");
+
+    // =========================================================================
+    // 5. 建立與管理播放清單 (支援選取、拖入、配對字幕)
+    // =========================================================================
+    async function handleFilesAdded(fileList) {
+      const files = Array.from(fileList);
+      if (files.length === 0) return;
+
+      const videoFiles = [];
+      const subtitleFiles = [];
+
+      files.forEach((f) => {
+        const ext = f.name.split(".").pop().toLowerCase();
+        if (["srt", "vtt"].includes(ext)) {
+          subtitleFiles.push(f);
+        } else if (f.type.startsWith("video/") || ["mp4", "webm", "mkv", "mov"].includes(ext)) {
+          videoFiles.push(f);
+        }
+      });
+
+      // 先讀取所有字幕檔內容
+      const parsedSubtitles = {};
+      for (const sf of subtitleFiles) {
+        const text = await sf.text();
+        parsedSubtitles[getBaseName(sf.name).toLowerCase()] = {
+          cues: parseSRT(text),
+          srtName: sf.name
+        };
+      }
+
+      // 新增影片至播放清單
+      videoFiles.forEach((vf) => {
+        const base = getBaseName(vf.name);
+        const baseKey = base.toLowerCase();
+        const matchedSub = parsedSubtitles[baseKey] || matchBuiltinSrt(base);
+
+        state.playlist.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: vf.name,
+          baseName: base,
+          url: URL.createObjectURL(vf),
+          completed: false,
+          cues: matchedSub ? matchedSub.cues : [],
+          srtName: matchedSub ? matchedSub.srtName : null
+        });
+      });
+
+      // 若使用者單獨拖入字幕檔，嘗試配對給清單中同名或最後一部影片
+      if (videoFiles.length === 0 && subtitleFiles.length > 0 && state.playlist.length > 0) {
+        for (const sf of subtitleFiles) {
+          const baseKey = getBaseName(sf.name).toLowerCase();
+          const subData = parsedSubtitles[baseKey];
+          let target = state.playlist.find((item) => item.baseName.toLowerCase() === baseKey);
+          if (!target) {
+            target = state.playlist[state.playlist.length - 1];
+          }
+          if (target && subData) {
+            target.cues = subData.cues;
+            target.srtName = sf.name;
+          }
+        }
+      }
+
+      renderPlaylist();
+    }
+
+    // 快速載入重新命名並打上 API Key 馬賽克後的兩支教學影片
+    function loadWorkspaceSampleVideos() {
+      const samples = [
+        {
+          name: "07-01-Google AI Studio 申請 API Key.mp4",
+          baseName: "07-01-Google AI Studio 申請 API Key",
+          url: "07-01-Google AI Studio 申請 API Key.mp4",
+          cues: parseSRT(BUILTIN_SRT_MAP["07-01"]),
+          srtName: "07-01-Google AI Studio 申請 API Key.srt"
+        },
+        {
+          name: "07-02-OpenCode 設定 Gemini  Models提供者.mp4",
+          baseName: "07-02-OpenCode 設定 Gemini  Models提供者",
+          url: "07-02-OpenCode 設定 Gemini  Models提供者.mp4",
+          cues: parseSRT(BUILTIN_SRT_MAP["07-02"]),
+          srtName: "07-02-OpenCode 設定 Gemini  Models提供者.srt"
+        }
+      ];
+
+      samples.forEach((s) => {
+        state.playlist.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: s.name,
+          baseName: s.baseName,
+          url: s.url,
+          completed: false,
+          cues: s.cues,
+          srtName: s.srtName
+        });
+      });
+
+      renderPlaylist();
+    }
+
+    function renderPlaylist() {
+      const total = state.playlist.length;
+      playlistCount.textContent = `${total} 部影片`;
+      playlistEmpty.style.display = total === 0 ? "block" : "none";
+      btnClearAll.style.display = total === 0 ? "none" : "inline-flex";
+
+      // 找出第一部尚未播放完成的影片作為「建議下一部 (next-up)」
+      const nextUpIdx = state.playlist.findIndex((item) => !item.completed);
+
+      playlistItems.innerHTML = "";
+      state.playlist.forEach((item, idx) => {
+        const row = document.createElement("div");
+        row.className = "playlist-item";
+        if (item.completed) row.classList.add("completed");
+        if (idx === nextUpIdx) row.classList.add("next-up");
+
+        const hasCC = item.cues && item.cues.length > 0;
+
+        row.innerHTML = `
+          <div class="item-left">
+            <div class="item-index">${item.completed ? "✓" : idx + 1}</div>
+            <div class="item-info">
+              <div class="item-title">${item.name}</div>
+              <div class="item-meta">
+                ${item.completed ? '<span class="tag tag-done">✅ 已播畢</span>' : ""}
+                ${idx === nextUpIdx ? '<span class="tag tag-next">👉 待播下一部</span>' : ""}
+                ${hasCC
+                  ? `<span class="tag tag-cc">CC 字幕已就緒 (${item.cues.length} 句)</span>`
+                  : `<span class="tag">無字幕</span>`}
+              </div>
+            </div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-primary" data-action="play">▶ 播放</button>
+            <button class="btn" data-action="attach-srt" title="選擇 .srt 字幕檔配對此影片">📝 字幕</button>
+            <button class="icon-only-btn" data-action="up" title="上移" ${idx === 0 ? "disabled" : ""}>↑</button>
+            <button class="icon-only-btn" data-action="down" title="下移" ${idx === total - 1 ? "disabled" : ""}>↓</button>
+            <button class="icon-only-btn" data-action="delete" title="從清單移除">✕</button>
+          </div>
+        `;
+
+        row.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-action]");
+          const action = btn ? btn.dataset.action : "play";
+          e.stopPropagation();
+
+          if (action === "play") {
+            startPlayingIndex(idx);
+          } else if (action === "attach-srt") {
+            state.attachTargetIndex = idx;
+            singleSrtInput.click();
+          } else if (action === "up" && idx > 0) {
+            const tmp = state.playlist[idx - 1];
+            state.playlist[idx - 1] = state.playlist[idx];
+            state.playlist[idx] = tmp;
+            renderPlaylist();
+          } else if (action === "down" && idx < total - 1) {
+            const tmp = state.playlist[idx + 1];
+            state.playlist[idx + 1] = state.playlist[idx];
+            state.playlist[idx] = tmp;
+            renderPlaylist();
+          } else if (action === "delete") {
+            state.playlist.splice(idx, 1);
+            renderPlaylist();
+          }
+        });
+
+        playlistItems.appendChild(row);
+      });
+    }
+
+    // =========================================================================
+    // 6. 切換「播放清單模式」與「播放模式」
+    // =========================================================================
+    function startPlayingIndex(idx) {
+      const item = state.playlist[idx];
+      if (!item) return;
+
+      state.currentIndex = idx;
+      finishBanner.classList.remove("show");
+
+      // 切換至播放器視圖
+      playlistView.classList.remove("active");
+      playerView.classList.add("active");
+
+      nowPlayingTitle.textContent = `正在播放 (${idx + 1}/${state.playlist.length})：${item.name}`;
+      ccTextBox.textContent = "";
+
+      videoEl.src = item.url;
+      videoEl.load();
+      videoEl.playbackRate = parseFloat(speedPicker.value) || 1;
+      videoEl.play().catch(() => {});
+    }
+
+    function returnToPlaylistMode(fromEnded = false) {
+      videoEl.pause();
+
+      // 若處於全螢幕狀態，播畢時自動退出全螢幕回到清單
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      playerView.classList.remove("active");
+      playlistView.classList.add("active");
+
+      if (fromEnded && state.currentIndex !== -1) {
+        const finishedItem = state.playlist[state.currentIndex];
+        if (finishedItem) finishedItem.completed = true;
+
+        // 檢查是否還有下一部未播放的影片
+        const nextIdx = state.playlist.findIndex((it, i) => i > state.currentIndex && !it.completed);
+        finishBanner.classList.add("show");
+
+        if (nextIdx !== -1) {
+          finishBannerText.textContent = `✅「${finishedItem.name}」播放完畢！您可以點選下方清單中的下一部影片進行播放。`;
+          btnPlayNextImmediate.style.display = "inline-flex";
+          btnPlayNextImmediate.onclick = () => startPlayingIndex(nextIdx);
+        } else {
+          finishBannerText.textContent = `🎉「${finishedItem.name}」播放完畢！本節課播放清單中的影片皆已播畢。`;
+          btnPlayNextImmediate.style.display = "none";
+        }
+      }
+
+      renderPlaylist();
+    }
+
+    // =========================================================================
+    // 7. 播放器事件與 CC 字幕同步
+    // =========================================================================
+    function updateSubtitleDisplay() {
+      const item = state.playlist[state.currentIndex];
+      if (!item || !state.ccEnabled || !item.cues || item.cues.length === 0) {
+        ccTextBox.textContent = "";
+        return;
+      }
+      const t = videoEl.currentTime;
+      const activeCue = item.cues.find((c) => t >= c.start && t <= c.end);
+      ccTextBox.textContent = activeCue ? activeCue.text : "";
+    }
+
+    videoEl.addEventListener("timeupdate", () => {
+      const t = videoEl.currentTime;
+      const dur = videoEl.duration || 0;
+      curTimeLabel.textContent = formatTime(t);
+      if (dur > 0) {
+        progressFill.style.width = `${Math.min(100, (t / dur) * 100)}%`;
+      }
+      updateSubtitleDisplay();
+    });
+
+    videoEl.addEventListener("loadedmetadata", () => {
+      durTimeLabel.textContent = formatTime(videoEl.duration);
+    });
+
+    videoEl.addEventListener("play", () => {
+      btnPlayPause.textContent = "⏸ 暫停";
+    });
+
+    videoEl.addEventListener("pause", () => {
+      btnPlayPause.textContent = "▶ 播放";
+    });
+
+    // 核心需求：一部影片播放完成後，自動回到播放清單模式讓老師選擇下一部
+    videoEl.addEventListener("ended", () => {
+      returnToPlaylistMode(true);
+    });
+
+    // 點擊畫面或按鈕播放/暫停
+    function togglePlayPause() {
+      if (videoEl.paused || videoEl.ended) {
+        videoEl.play().catch(() => {});
+      } else {
+        videoEl.pause();
+      }
+    }
+
+    videoEl.addEventListener("click", togglePlayPause);
+    btnPlayPause.addEventListener("click", togglePlayPause);
+
+    btnRewind.addEventListener("click", () => {
+      videoEl.currentTime = Math.max(0, videoEl.currentTime - 5);
+    });
+
+    btnForward.addEventListener("click", () => {
+      videoEl.currentTime = Math.min(videoEl.duration || 0, videoEl.currentTime + 5);
+    });
+
+    progressWrap.addEventListener("click", (e) => {
+      const rect = progressWrap.getBoundingClientRect();
+      const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      videoEl.currentTime = ratio * (videoEl.duration || 0);
+    });
+
+    // 音量控制
+    btnMute.addEventListener("click", () => {
+      videoEl.muted = !videoEl.muted;
+      btnMute.textContent = videoEl.muted ? "🔇" : "🔊";
+    });
+
+    volumeRange.addEventListener("input", () => {
+      videoEl.volume = parseFloat(volumeRange.value);
+      videoEl.muted = videoEl.volume === 0;
+      btnMute.textContent = videoEl.muted ? "🔇" : "🔊";
+    });
+
+    // CC 字幕開關
+    function toggleCC() {
+      state.ccEnabled = !state.ccEnabled;
+      ccLayer.classList.toggle("hidden", !state.ccEnabled);
+      btnCC.classList.toggle("cc-on", state.ccEnabled);
+      btnCC.textContent = state.ccEnabled ? "CC 字幕：開" : "CC 字幕：關";
+      updateSubtitleDisplay();
+    }
+
+    btnCC.addEventListener("click", toggleCC);
+
+    speedPicker.addEventListener("change", () => {
+      videoEl.playbackRate = parseFloat(speedPicker.value) || 1;
+    });
+
+    // =========================================================================
+    // 全螢幕與底部控制列自動隱藏 / 滑鼠靠近底部才顯示
+    // =========================================================================
+    let hideControlsTimer = null;
+
+    function scheduleHideControls(delay = 2000) {
+      clearTimeout(hideControlsTimer);
+      hideControlsTimer = setTimeout(() => {
+        if (!videoEl.paused) {
+          videoStage.classList.remove("show-controls");
+        }
+      }, delay);
+    }
+
+    btnFullscreen.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        // 進入全螢幕時立即隱藏底部選單，避免擋住畫面下方內容
+        videoStage.classList.remove("show-controls");
+        videoStage.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      const isFS = !!document.fullscreenElement;
+      btnFullscreen.textContent = isFS ? "⛶ 離開全螢幕" : "⛶ 全螢幕";
+      if (isFS) {
+        clearTimeout(hideControlsTimer);
+        videoStage.classList.remove("show-controls");
+      } else {
+        videoStage.classList.add("show-controls");
+        scheduleHideControls(2500);
+      }
+    });
+
+    videoStage.addEventListener("mousemove", (e) => {
+      const rect = videoStage.getBoundingClientRect();
+      const distFromBottom = rect.bottom - e.clientY;
+      const isFS = !!document.fullscreenElement;
+
+      if (isFS) {
+        // 全螢幕模式下：只有當滑鼠靠近螢幕底部 110px 內時才顯示選單，移開即隱藏
+        if (distFromBottom <= 110) {
+          videoStage.classList.add("show-controls");
+          clearTimeout(hideControlsTimer);
+        } else {
+          videoStage.classList.remove("show-controls");
+        }
+      } else {
+        // 一般視窗模式下：滑鼠移動或靠近底部時顯示，靜止一段時間後自動收起
+        videoStage.classList.add("show-controls");
+        if (distFromBottom > 95) {
+          scheduleHideControls(1800);
+        } else {
+          clearTimeout(hideControlsTimer);
+        }
+      }
+    });
+
+    videoStage.addEventListener("mouseleave", () => {
+      if (!videoEl.paused) {
+        videoStage.classList.remove("show-controls");
+      }
+    });
+
+    document.getElementById("btnBackToPlaylist").addEventListener("click", () => {
+      returnToPlaylistMode(false);
+    });
+
+    // =========================================================================
+    // 8. 檔案選取與拖放事件綁定
+    // =========================================================================
+    document.getElementById("btnSelectFiles").addEventListener("click", () => fileInput.click());
+    document.getElementById("btnQuickAdd").addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("click", () => fileInput.click());
+
+    document.getElementById("btnLoadSample").addEventListener("click", () => {
+      loadWorkspaceSampleVideos();
+    });
+
+    document.getElementById("btnClearAll").addEventListener("click", () => {
+      videoEl.pause();
+      videoEl.removeAttribute("src");
+      state.playlist = [];
+      state.currentIndex = -1;
+      finishBanner.classList.remove("show");
+      playerView.classList.remove("active");
+      playlistView.classList.add("active");
+      renderPlaylist();
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      handleFilesAdded(e.target.files);
+      fileInput.value = "";
+    });
+
+    // 單獨為某部影片掛載字幕
+    document.getElementById("btnAttachSrtInPlayer").addEventListener("click", () => {
+      state.attachTargetIndex = state.currentIndex;
+      singleSrtInput.click();
+    });
+
+    singleSrtInput.addEventListener("change", async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const text = await f.text();
+      const target = state.playlist[state.attachTargetIndex];
+      if (target) {
+        target.cues = parseSRT(text);
+        target.srtName = f.name;
+        renderPlaylist();
+        updateSubtitleDisplay();
+      }
+      singleSrtInput.value = "";
+    });
+
+    // 支援整個視窗拖入檔案
+    window.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+
+    window.addEventListener("dragleave", (e) => {
+      if (e.target === document || !e.relatedTarget) {
+        dropzone.classList.remove("dragover");
+      }
+    });
+
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+        handleFilesAdded(e.dataTransfer.files);
+      }
+    });
+
+    // 鍵盤快捷鍵 (僅在播放模式生效)
+    document.addEventListener("keydown", (e) => {
+      if (!playerView.classList.contains("active")) return;
+      if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
+
+      if (e.key === " " || e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        toggleCC();
+      } else if (e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        btnFullscreen.click();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        btnRewind.click();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        btnForward.click();
+      } else if (e.key === "Escape" && !document.fullscreenElement) {
+        returnToPlaylistMode(false);
+      }
+    });
+  </script>
+</body>
+</html>

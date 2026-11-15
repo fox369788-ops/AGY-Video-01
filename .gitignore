@@ -1,0 +1,18 @@
+# Videos and large media files
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.wav
+*.mp3
+
+# Exception: do NOT ignore the zip package!
+!影音自動剪輯-20261115.zip
+
+# Python cache & temp files
+__pycache__/
+*.py[cod]
+*$py.class
+*.tmp
+frames/
+tmp/
